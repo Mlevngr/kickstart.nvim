@@ -14,12 +14,32 @@ return {
     { '\\', ':Neotree reveal<CR>', desc = 'NeoTree reveal', silent = true },
   },
   opts = {
+    window = {
+      position = 'left',
+      width = 30,
+    },
     filesystem = {
       window = {
         mappings = {
           ['\\'] = 'close_window',
+          ['u'] = 'navigate_up',
+          ['.'] = 'toggle_hidden',
+          ['R'] = 'refresh',
+          ['a'] = 'add',
+          ['d'] = 'delete',
+          ['r'] = 'rename',
         },
       },
     },
+    event_handlers = {
+      event = 'neo_tree_buffer_enter',
+      handler = function()
+        vim.cmd 'setlocal modifiable'
+      end,
+    },
+    follow_current_file = {
+      enabled = true,
+    },
+    use_libuv_file_watcher = true,
   },
 }

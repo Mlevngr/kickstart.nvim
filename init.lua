@@ -83,6 +83,10 @@ I hope you enjoy your Neovim journey,
 
 P.S. You can delete this when you're done too. It's your config now! :)
 --]]
+--
+-- Disable netrw
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
 
 -- Set <space> as the leader key
 -- See `:help mapleader`
@@ -107,6 +111,9 @@ vim.opt.number = true
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.opt.mouse = 'a'
 
+-- Set swap file location
+vim.opt.directory = '/home/zhanbo/.local/share/nvim/swap/'
+
 -- Don't show the mode, since it's already in the status line
 vim.opt.showmode = false
 
@@ -117,6 +124,9 @@ vim.opt.showmode = false
 vim.schedule(function()
   vim.opt.clipboard = 'unnamedplus'
 end)
+
+-- Enable vitual edit
+vim.opt.virtualedit = 'onemore'
 
 -- Enable break indent
 vim.opt.breakindent = true
@@ -147,6 +157,9 @@ vim.opt.splitbelow = true
 --  and `:help 'listchars'`
 vim.opt.list = true
 vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
+vim.opt.tabstop = 4
+vim.opt.shiftwidth = 4
+vim.opt.expandtab = true
 
 -- Preview substitutions live, as you type!
 vim.opt.inccommand = 'split'
@@ -230,7 +243,7 @@ vim.opt.rtp:prepend(lazypath)
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
-
+  { import = 'kickstart.plugins' },
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
   -- keys can be used to configure plugin behavior/loading/etc.
@@ -547,7 +560,7 @@ require('lazy').setup({
           --  For example, in C this would take you to the header.
           map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
 
-          -- The following two autocommands are used to highlight references of the
+          -- The vim.o.statuslinefollowing two autocommands are used to highlight references of the
           -- word under your cursor when your cursor rests there for a little while.
           --    See `:help CursorHold` for information about when this is executed
           --
@@ -659,7 +672,7 @@ require('lazy').setup({
         'stylua', -- Used to format Lua code
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
-
+      require('lspconfig').svlangserver.setup {}
       require('mason-lspconfig').setup {
         handlers = {
           function(server_name)
@@ -884,8 +897,11 @@ require('lazy').setup({
       -- default behavior. For example, here we set the section for
       -- cursor location to LINE:COLUMN
       ---@diagnostic disable-next-line: duplicate-set-field
+      --statusline.section_location = function()
+      --  return '%2l:%-2v'
+      --end
       statusline.section_location = function()
-        return '%2l:%-2v'
+        return string.format('%d/%d:%d/%d', vim.fn.line '.', vim.fn.line '$', vim.fn.col '.', vim.fn.col '$')
       end
 
       -- ... and there is more!
