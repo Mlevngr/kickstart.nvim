@@ -242,7 +242,6 @@ vim.opt.rtp:prepend(lazypath)
 -- NOTE: Here is where you install your plugins.
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
-  'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
   { import = 'kickstart.plugins' },
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
@@ -268,19 +267,31 @@ require('lazy').setup({
       },
     },
   },
-
-  -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
+  {
+    {
+      'sheerun/vim-polyglot',
+      lazy = false, -- 启动时立即加载，避免函数缺失报错
+      config = function()
+        vim.cmd 'filetype plugin indent on' -- 启用缩进脚本
+        vim.o.expandtab = true -- 全局 4 空格缩进
+        vim.o.shiftwidth = 4
+        vim.o.tabstop = 4
+        vim.o.softtabstop = 4
+      end,
+    },
+  },
+  -- note: plugins can also be configured to run lua code when they are loaded.
   --
-  -- This is often very useful to both group configuration, as well as handle
+  -- this is often very useful to both group configuration, as well as handle
   -- lazy loading plugins that don't need to be loaded immediately at startup.
   --
-  -- For example, in the following configuration, we use:
-  --  event = 'VimEnter'
+  -- for example, in the following configuration, we use:
+  --  event = 'vimenter'
   --
-  -- which loads which-key before all the UI elements are loaded. Events can be
+  -- which loads which-key before all the ui elements are loaded. events can be
   -- normal autocommands events (`:help autocmd-events`).
   --
-  -- Then, because we use the `config` key, the configuration only runs
+  -- then, because we use the `config` key, the configuration only runs
   -- after the plugin has been loaded:
   --  config = function() ... end
 
