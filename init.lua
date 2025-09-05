@@ -95,7 +95,7 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.opt`
@@ -107,7 +107,10 @@ vim.opt.number = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
 -- vim.opt.relativenumber = true
-
+if vim.env.KITTY_WINDOW_ID then
+  vim.opt.title = true
+  vim.opt.titlestring = ' %t' -- 需要 Nerd Font
+end
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.opt.mouse = 'a'
 
@@ -122,7 +125,7 @@ vim.opt.showmode = false
 --  Remove this option if you want your OS clipboard to remain independent.
 --  See `:help 'clipboard'`
 vim.schedule(function()
-  vim.opt.clipboard = 'unnamedplus'
+  vim.opt.clipboard = ''
 end)
 
 -- Enable vitual edit
@@ -268,17 +271,64 @@ require('lazy').setup({
     },
   },
   {
-    {
-      'sheerun/vim-polyglot',
-      lazy = false, -- 启动时立即加载，避免函数缺失报错
-      config = function()
-        vim.cmd 'filetype plugin indent on' -- 启用缩进脚本
-        vim.o.expandtab = true -- 全局 4 空格缩进
-        vim.o.shiftwidth = 4
-        vim.o.tabstop = 4
-        vim.o.softtabstop = 4
-      end,
-    },
+    'lervag/vimtex',
+    ft = { 'tex', 'plaintex' },
+    init = function()
+      vim.g.vimtex_view_method = 'zathura'
+      vim.g.vimtex_quickfix_mode = 0
+      vim.g.vimtex_compiler_method = 'latexmk'
+      vim.g.vimtex_compiler_latexmk = {
+        options = {
+          '-pdf',
+          '-pdflatex=lualatex',
+          '-lualatex',
+          '-synctex=1',
+          '-interaction=nonstopmode',
+          '-file-line-error',
+          '-shell-escape', -- enable if you use minted/tikz externalization
+        },
+      }
+      vim.g.vimtex_compiler_latexmk_engines = {
+        _ = '-lualatex',
+      }
+    end,
+  },
+  {
+    'edluffy/hologram.nvim',
+    ft = { 'pdf' },
+    config = function()
+      require('hologram').setup {
+        auto_display = true,
+      }
+    end,
+  },
+  {
+    'ojroques/nvim-osc52',
+    config = function()
+      local osc52 = require 'osc52'
+      vim.keymap.set('n', '<leader>y', osc52.copy_operator, { expr = true })
+      vim.keymap.set('n', '<leader>yy', '<leader>y_', { remap = true })
+      vim.keymap.set('v', '<leader>y', osc52.copy_visual)
+    end,
+  },
+  {
+    'sheerun/vim-polyglot',
+    lazy = false,
+    config = function()
+      vim.cmd [[
+        filetype plugin indent on
+        set expandtab
+        set shiftwidth=4
+        set tabstop=4
+        set softtabstop=4
+      ]]
+
+      --    “setlocal indentkeys-==endmodule”
+      vim.api.nvim_create_autocmd('FileType', {
+        pattern = { 'verilog', 'systemverilog' },
+        command = 'setlocal indentkeys-==endmodule',
+      })
+    end,
   },
   -- note: plugins can also be configured to run lua code when they are loaded.
   --
@@ -779,7 +829,6 @@ require('lazy').setup({
       'hrsh7th/cmp-path',
     },
     config = function()
-      -- See `:help cmp`
       local cmp = require 'cmp'
       local luasnip = require 'luasnip'
       luasnip.config.setup {}
@@ -792,44 +841,14 @@ require('lazy').setup({
         },
         completion = { completeopt = 'menu,menuone,noinsert' },
 
-        -- For an understanding of why these mappings were
-        -- chosen, you will need to read `:help ins-completion`
-        --
-        -- No, but seriously. Please read `:help ins-completion`, it is really good!
         mapping = cmp.mapping.preset.insert {
-          -- Select the [n]ext item
           ['<C-n>'] = cmp.mapping.select_next_item(),
-          -- Select the [p]revious item
           ['<C-p>'] = cmp.mapping.select_prev_item(),
-
-          -- Scroll the documentation window [b]ack / [f]orward
           ['<C-b>'] = cmp.mapping.scroll_docs(-4),
           ['<C-f>'] = cmp.mapping.scroll_docs(4),
-
-          -- Accept ([y]es) the completion.
-          --  This will auto-import if your LSP supports it.
-          --  This will expand snippets if the LSP sent a snippet.
           ['<C-y>'] = cmp.mapping.confirm { select = true },
-
-          -- If you prefer more traditional completion keymaps,
-          -- you can uncomment the following lines
-          --['<CR>'] = cmp.mapping.confirm { select = true },
-          --['<Tab>'] = cmp.mapping.select_next_item(),
-          --['<S-Tab>'] = cmp.mapping.select_prev_item(),
-
-          -- Manually trigger a completion from nvim-cmp.
-          --  Generally you don't need this, because nvim-cmp will display
-          --  completions whenever it has completion options available.
           ['<C-Space>'] = cmp.mapping.complete {},
 
-          -- Think of <c-l> as moving to the right of your snippet expansion.
-          --  So if you have a snippet that's like:
-          --  function $name($args)
-          --    $body
-          --  end
-          --
-          -- <c-l> will move you to the right of each of the expansion locations.
-          -- <c-h> is similar, except moving you backwards.
           ['<C-l>'] = cmp.mapping(function()
             if luasnip.expand_or_locally_jumpable() then
               luasnip.expand_or_jump()
@@ -841,13 +860,28 @@ require('lazy').setup({
             end
           end, { 'i', 's' }),
 
-          -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
-          --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
+          -- ✅ 新增 Tab / Shift-Tab 补全逻辑
+          ['<Tab>'] = cmp.mapping(function(fallback)
+            if cmp.visible() then
+              cmp.confirm { select = true } -- 直接确认第一个候选项
+            elseif luasnip.expand_or_jumpable() then
+              luasnip.expand_or_jump()
+            else
+              fallback()
+            end
+          end, { 'i', 's' }),
+
+          ['<S-Tab>'] = cmp.mapping(function(fallback)
+            if luasnip.locally_jumpable(-1) then
+              luasnip.jump(-1)
+            else
+              fallback()
+            end
+          end, { 'i', 's' }),
         },
         sources = {
           {
             name = 'lazydev',
-            -- set group index to 0 to skip loading LuaLS completions as lazydev recommends it
             group_index = 0,
           },
           { name = 'nvim_lsp' },
@@ -857,7 +891,6 @@ require('lazy').setup({
       }
     end,
   },
-
   { -- You can easily change to a different colorscheme.
     -- Change the name of the colorscheme plugin below, and then
     -- change the command in the config to whatever the name of that colorscheme is.
@@ -925,7 +958,7 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'python' },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -935,8 +968,9 @@ require('lazy').setup({
         --  the list of additional_vim_regex_highlighting and disabled languages for indent.
         additional_vim_regex_highlighting = { 'ruby' },
       },
-      indent = { enable = true, disable = { 'ruby' } },
+      indent = { enable = false },
     },
+    { 'nvim-treesitter/nvim-treesitter-context', opts = { mode = 'cursor', separator = '─' } },
     -- There are additional nvim-treesitter modules that you can use to interact
     -- with nvim-treesitter. You should go explore a few and see what interests you:
     --
@@ -989,9 +1023,46 @@ require('lazy').setup({
       start = '🚀',
       task = '📌',
       lazy = '💤 ',
+      nvim = '',
     },
   },
 })
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
+--
+local function executable(cmd)
+  return vim.fn.executable(cmd) == 1
+end
+
+local has_display = (vim.env.DISPLAY ~= nil and vim.env.DISPLAY ~= '') and executable 'xclip'
+
+if has_display then
+  vim.g.clipboard = {
+    name = 'xclip',
+    copy = {
+      ['+'] = 'xclip -selection clipboard',
+      ['*'] = 'xclip -selection primary',
+    },
+    paste = {
+      ['+'] = 'xclip -selection clipboard -o',
+      ['*'] = 'xclip -selection primary -o',
+    },
+  }
+else
+  local osc52 = require 'osc52'
+  osc52.setup { silent = true }
+
+  local function copy(lines, _)
+    osc52.copy(table.concat(lines, '\n'))
+  end
+  local function paste()
+    return { vim.split(vim.fn.getreg '+', '\n'), vim.fn.getregtype '+' }
+  end
+
+  vim.g.clipboard = {
+    name = 'osc52',
+    copy = { ['+'] = copy, ['*'] = copy },
+    paste = { ['+'] = paste, ['*'] = paste },
+  }
+end
