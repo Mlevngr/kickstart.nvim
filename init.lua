@@ -109,7 +109,7 @@ vim.opt.number = true
 -- vim.opt.relativenumber = true
 if vim.env.KITTY_WINDOW_ID then
   vim.opt.title = true
-  vim.opt.titlestring = ' %t' -- 需要 Nerd Font
+  vim.opt.titlestring = ' %t' -- 需要 Nerd Font
 end
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.opt.mouse = 'a'
@@ -159,7 +159,7 @@ vim.opt.splitbelow = true
 --  See `:help 'list'`
 --  and `:help 'listchars'`
 vim.opt.list = true
-vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
+vim.opt.listchars = { tab = '| ', trail = '·', nbsp = '␣' }
 vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4
 vim.opt.expandtab = true
@@ -175,6 +175,8 @@ vim.opt.scrolloff = 10
 
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
+vim.opt.wildmenu = true
+vim.opt.wildmode = { 'longest:full', 'full' }
 
 -- Clear highlights on search when pressing <Esc> in normal mode
 --  See `:help hlsearch`
@@ -182,6 +184,20 @@ vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+
+-- Open terminal in a horizontal split
+vim.keymap.set('n', '<leader>tt', function()
+  vim.cmd 'split'
+  vim.cmd 'resize 12'
+  vim.cmd 'terminal'
+  vim.cmd 'startinsert'
+end, { desc = 'Open terminal (bottom split)' })
+-- Open terminal in a vertical split
+vim.keymap.set('n', '<leader>tv', function()
+  vim.cmd 'vsplit'
+  vim.cmd 'terminal'
+  vim.cmd 'startinsert'
+end, { desc = 'Open terminal (vertical split)' })
 
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
@@ -219,7 +235,17 @@ vim.api.nvim_create_autocmd('TextYankPost', {
     vim.highlight.on_yank()
   end,
 })
-
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'systemverilog', 'verilog' },
+  callback = function()
+    vim.bo.commentstring = '// %s'
+  end,
+})
+vim.filetype.add {
+  extension = {
+    kdl = 'kdl',
+  },
+}
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
@@ -245,7 +271,13 @@ vim.opt.rtp:prepend(lazypath)
 -- NOTE: Here is where you install your plugins.
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
+  { 'folke/tokyonight.nvim' },
+  { 'catppuccin/nvim', name = 'catppuccin' },
+  { 'ellisonleao/gruvbox.nvim' },
+  { 'navarasu/onedark.nvim' },
+  { 'sainnhe/everforest' },
   { import = 'kickstart.plugins' },
+
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
   -- keys can be used to configure plugin behavior/loading/etc.
@@ -271,6 +303,38 @@ require('lazy').setup({
     },
   },
   {
+    'nvim-lualine/lualine.nvim',
+    event = 'VimEnter',
+    dependencies = { 'nvim-tree/nvim-web-devicons' },
+    opts = function()
+      local function lineinfo()
+        local line = vim.fn.line '.'
+        local total_row = vim.fn.line '$'
+        local col = vim.fn.virtcol '.'
+        local total_col = vim.fn.strdisplaywidth(vim.fn.getline '.')
+        return string.format('%d/%d:%d/%d', line, total_row, col, total_col)
+      end
+
+      return {
+        options = {
+          theme = 'onedark',
+          globalstatus = true,
+          section_separators = '',
+          component_separators = '',
+        },
+        sections = {
+          lualine_a = { 'mode' },
+          lualine_b = { 'branch' },
+          lualine_c = { { 'filename', path = 1 } },
+          lualine_x = { 'encoding', 'fileformat', 'filetype' },
+          lualine_y = { 'progress' },
+          lualine_z = { lineinfo },
+        },
+      }
+    end,
+  },
+
+  {
     'lervag/vimtex',
     ft = { 'tex', 'plaintex' },
     init = function()
@@ -279,8 +343,7 @@ require('lazy').setup({
       vim.g.vimtex_compiler_method = 'latexmk'
       vim.g.vimtex_compiler_latexmk = {
         options = {
-          '-pdf',
-          '-pdflatex=lualatex',
+          '-cd',
           '-lualatex',
           '-synctex=1',
           '-interaction=nonstopmode',
@@ -288,20 +351,32 @@ require('lazy').setup({
           '-shell-escape', -- enable if you use minted/tikz externalization
         },
       }
-      vim.g.vimtex_compiler_latexmk_engines = {
-        _ = '-lualatex',
-      }
+      vim.g.vimtex_compiler_latexmk_engines = { ['_'] = '-lualatex' }
+      vim.g.vimtex_view_forward_search_on_start = 1
     end,
+    -- vim.keymap.set('n', '<leader>l', function()
+    --   if vim.g.term_pdf_viewrer_open then
+    --     vim.fn.system 'kitty @ close-window --match title:termpdf'
+    --     vim.g.term_pdf_viewrer_open = false
+    --   elseif vim.g.tex_compiles_successfully then
+    --     vim.fn.system 'kitty @ launch --location=vsplit --cwd=current --title=termpdf'
+    --
+    --     local command = 'termpdf.py ' .. vim.api.nvim_call_function('expand', { '%:r' }) .. '.pdf' .. "'\r'"
+    --     local kitty = 'ghostty @ send-text --match title:termpdf '
+    --     vim.fn.system(kitty .. command)
+    --     vim.g.term_pdf_viewrer_open = true
+    --   end
+    -- end),
   },
-  {
-    'edluffy/hologram.nvim',
-    ft = { 'pdf' },
-    config = function()
-      require('hologram').setup {
-        auto_display = true,
-      }
-    end,
-  },
+  -- {
+  --   'edluffy/hologram.nvim',
+  --   ft = { 'pdf' },
+  --   config = function()
+  --     require('hologram').setup {
+  --       auto_display = true,
+  --     }
+  --   end,
+  -- },
   {
     'ojroques/nvim-osc52',
     config = function()
@@ -513,7 +588,7 @@ require('lazy').setup({
 
   -- LSP Plugins
   {
-    -- `lazydev` configures Lua LSP for your Neovim config, runtime and plugins
+    -- `lazydev` configures Lua LSP for your Neovim config, runtime and pluginsini
     -- used for completion, annotations and signatures of Neovim apis
     'folke/lazydev.nvim',
     ft = 'lua',
@@ -702,6 +777,17 @@ require('lazy').setup({
         -- ts_ls = {},
         --
 
+        pylsp = {
+          settings = {
+            pylsp = {
+              plugins = {
+                autopep8 = { enabled = false },
+                yapf = { enabled = false },
+                black = { enabled = false },
+              },
+            },
+          },
+        },
         lua_ls = {
           -- cmd = {...},
           -- filetypes = { ...},
@@ -717,7 +803,20 @@ require('lazy').setup({
           },
         },
       }
+      -- KDL filetype and LSP
+      vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
+        pattern = '*.kdl',
+        callback = function()
+          vim.bo.filetype = 'kdl'
+        end,
+      })
 
+      -- Ensure the servers and tools above are installed
+      require('mason').setup()
+
+      local ensure_installed = vim.tbl_keys(servers or {})
+      vim.list_extend(ensure_installed, { 'stylua' })
+      require('mason-tool-installer').setup { ensure_installed = ensure_installed }
       -- Ensure the servers and tools above are installed
       --  To check the current status of installed tools and/or manually install
       --  other tools, you can run
@@ -726,30 +825,26 @@ require('lazy').setup({
       --  You can press `g?` for help in this menu.
       require('mason').setup()
 
-      -- You can add other tools here that you want Mason to install
-      -- for you, so that they are available from within Neovim.
       local ensure_installed = vim.tbl_keys(servers or {})
-      vim.list_extend(ensure_installed, {
-        'stylua', -- Used to format Lua code
-      })
+      vim.list_extend(ensure_installed, { 'stylua' })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
-      require('lspconfig').svlangserver.setup {}
+
+      vim.lsp.enable 'svlangserver'
+
       require('mason-lspconfig').setup {
         handlers = {
           function(server_name)
-            local server = servers[server_name] or {}
-            -- This handles overriding only values explicitly passed
-            -- by the server configuration above. Useful when disabling
-            -- certain features of an LSP (for example, turning off formatting for ts_ls)
-            server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-            require('lspconfig')[server_name].setup(server)
+            local server = (servers and servers[server_name]) or {}
+            server.capabilities = vim.tbl_deep_extend('force', {}, capabilities or {}, server.capabilities or {})
+            vim.lsp.config[server_name].setup(server)
+            vim.lsp.enable(server_name)
           end,
         },
       }
     end,
   },
 
-  { -- Autoformat
+  {
     'stevearc/conform.nvim',
     event = { 'BufWritePre' },
     cmd = { 'ConformInfo' },
@@ -763,133 +858,180 @@ require('lazy').setup({
         desc = '[F]ormat buffer',
       },
     },
-    opts = {
-      notify_on_error = false,
-      format_on_save = function(bufnr)
-        -- Disable "format_on_save lsp_fallback" for languages that don't
-        -- have a well standardized coding style. You can add additional
-        -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true }
-        local lsp_format_opt
-        if disable_filetypes[vim.bo[bufnr].filetype] then
-          lsp_format_opt = 'never'
-        else
-          lsp_format_opt = 'fallback'
-        end
-        return {
-          timeout_ms = 500,
-          lsp_format = lsp_format_opt,
-        }
-      end,
-      formatters_by_ft = {
-        lua = { 'stylua' },
-        -- Conform can also run multiple formatters sequentially
-        -- python = { "isort", "black" },
-        --
-        -- You can use 'stop_after_first' to run the first available formatter from the list
-        -- javascript = { "prettierd", "prettier", stop_after_first = true },
-      },
-    },
-  },
-
-  { -- Autocompletion
-    'hrsh7th/nvim-cmp',
-    event = 'InsertEnter',
-    dependencies = {
-      -- Snippet Engine & its associated nvim-cmp source
-      {
-        'L3MON4D3/LuaSnip',
-        build = (function()
-          -- Build Step is needed for regex support in snippets.
-          -- This step is not supported in many windows environments.
-          -- Remove the below condition to re-enable on windows.
-          if vim.fn.has 'win32' == 1 or vim.fn.executable 'make' == 0 then
-            return
-          end
-          return 'make install_jsregexp'
-        end)(),
-        dependencies = {
-          -- `friendly-snippets` contains a variety of premade snippets.
-          --    See the README about individual language/framework/plugin snippets:
-          --    https://github.com/rafamadriz/friendly-snippets
-          -- {
-          --   'rafamadriz/friendly-snippets',
-          --   config = function()
-          --     require('luasnip.loaders.from_vscode').lazy_load()
-          --   end,
-          -- },
-        },
-      },
-      'saadparwaiz1/cmp_luasnip',
-
-      -- Adds other completion capabilities.
-      --  nvim-cmp does not ship with all sources by default. They are split
-      --  into multiple repos for maintenance purposes.
-      'hrsh7th/cmp-nvim-lsp',
-      'hrsh7th/cmp-path',
-    },
     config = function()
-      local cmp = require 'cmp'
-      local luasnip = require 'luasnip'
-      luasnip.config.setup {}
-
-      cmp.setup {
-        snippet = {
-          expand = function(args)
-            luasnip.lsp_expand(args.body)
-          end,
-        },
-        completion = { completeopt = 'menu,menuone,noinsert' },
-
-        mapping = cmp.mapping.preset.insert {
-          ['<C-n>'] = cmp.mapping.select_next_item(),
-          ['<C-p>'] = cmp.mapping.select_prev_item(),
-          ['<C-b>'] = cmp.mapping.scroll_docs(-4),
-          ['<C-f>'] = cmp.mapping.scroll_docs(4),
-          ['<C-y>'] = cmp.mapping.confirm { select = true },
-          ['<C-Space>'] = cmp.mapping.complete {},
-
-          ['<C-l>'] = cmp.mapping(function()
-            if luasnip.expand_or_locally_jumpable() then
-              luasnip.expand_or_jump()
-            end
-          end, { 'i', 's' }),
-          ['<C-h>'] = cmp.mapping(function()
-            if luasnip.locally_jumpable(-1) then
-              luasnip.jump(-1)
-            end
-          end, { 'i', 's' }),
-
-          -- ✅ 新增 Tab / Shift-Tab 补全逻辑
-          ['<Tab>'] = cmp.mapping(function(fallback)
-            if cmp.visible() then
-              cmp.confirm { select = true } -- 直接确认第一个候选项
-            elseif luasnip.expand_or_jumpable() then
-              luasnip.expand_or_jump()
-            else
-              fallback()
-            end
-          end, { 'i', 's' }),
-
-          ['<S-Tab>'] = cmp.mapping(function(fallback)
-            if luasnip.locally_jumpable(-1) then
-              luasnip.jump(-1)
-            else
-              fallback()
-            end
-          end, { 'i', 's' }),
-        },
-        sources = {
-          {
-            name = 'lazydev',
-            group_index = 0,
-          },
-          { name = 'nvim_lsp' },
-          { name = 'luasnip' },
-          { name = 'path' },
+      require('conform').setup {
+        notify_on_error = false,
+        format_on_save = nil, -- 关闭内置 on-save，避免双重触发
+        formatters_by_ft = {
+          lua = { 'stylua' },
+          python = { 'isort', 'black' },
         },
       }
+
+      local function conform_format_undojoin(bufnr)
+        bufnr = bufnr or 0
+        local ok, conform = pcall(require, 'conform')
+        if not ok then
+          return
+        end
+        pcall(function()
+          vim.cmd 'silent! undojoin'
+        end)
+        conform.format { bufnr = bufnr, async = false, lsp_fallback = true }
+      end
+
+      local grp = vim.api.nvim_create_augroup('ConformFmtUndoJoin', { clear = true })
+      vim.api.nvim_create_autocmd('BufWritePre', {
+        group = grp,
+        pattern = { '*.py', '*.lua' }, -- 按需增添类型
+        callback = function(args)
+          conform_format_undojoin(args.buf)
+        end,
+      })
     end,
+  },
+
+  {
+    {
+      'hrsh7th/nvim-cmp',
+      event = 'InsertEnter',
+      dependencies = {
+        {
+          'L3MON4D3/LuaSnip',
+          version = 'v2.*',
+          build = (function()
+            if vim.fn.has 'win32' == 1 or vim.fn.executable 'make' == 0 then
+              return
+            end
+            return 'make install_jsregexp'
+          end)(),
+          dependencies = {
+            {
+              'rafamadriz/friendly-snippets',
+              config = function()
+                require('luasnip.loaders.from_vscode').lazy_load()
+              end,
+            },
+            -- {
+            --   'evesdropper/luasnip-latex-snippets.nvim',
+            --   ft = 'tex',
+            --   config = function()
+            --     require('luasnip-latex-snippets').setup()
+            --   end,
+            -- },
+          },
+          config = function()
+            require('luasnip').config.setup {}
+            require('luasnip.loaders.from_lua').lazy_load {
+              paths = { vim.fn.stdpath 'config' .. '/luasnippets' },
+            }
+          end,
+        },
+        'saadparwaiz1/cmp_luasnip',
+        'hrsh7th/cmp-nvim-lsp',
+        'hrsh7th/cmp-path',
+        'hrsh7th/cmp-buffer',
+        'micangl/cmp-vimtex',
+        'kdheepak/cmp-latex-symbols',
+      },
+      config = function()
+        local cmp = require 'cmp'
+        local luasnip = require 'luasnip'
+
+        cmp.setup {
+          snippet = {
+            expand = function(args)
+              luasnip.lsp_expand(args.body)
+            end,
+          },
+          completion = { completeopt = 'menu,menuone,noinsert' },
+          preselect = cmp.PreselectMode.None,
+          sorting = {
+            priority_weight = 2,
+            comparators = {
+              cmp.config.compare.offset,
+              cmp.config.compare.exact,
+              cmp.config.compare.score,
+              cmp.config.compare.recently_used,
+              cmp.config.compare.locality,
+              cmp.config.compare.kind,
+              cmp.config.compare.sort_text,
+              cmp.config.compare.length,
+              cmp.config.compare.order,
+            },
+          },
+          mapping = cmp.mapping.preset.insert {
+            ['<C-n>'] = cmp.mapping.select_next_item(),
+            ['<C-p>'] = cmp.mapping.select_prev_item(),
+            ['<C-b>'] = cmp.mapping.scroll_docs(-4),
+            ['<C-f>'] = cmp.mapping.scroll_docs(4),
+
+            ['<Tab>'] = cmp.mapping(function(fallback)
+              if cmp.visible() then
+                cmp.confirm { select = true } -- Tab = 确认补全
+              elseif luasnip.expand_or_jumpable() then
+                luasnip.expand_or_jump()
+              else
+                fallback()
+              end
+            end, { 'i', 's' }),
+
+            ['<S-Tab>'] = cmp.mapping(function(fallback)
+              if cmp.visible() then
+                cmp.select_prev_item()
+              elseif luasnip.locally_jumpable(-1) then
+                luasnip.jump(-1)
+              else
+                fallback()
+              end
+            end, { 'i', 's' }),
+
+            ['<CR>'] = function(fallback)
+              fallback() -- Enter 不再确认，直接换行
+            end,
+          },
+          sources = {
+            { name = 'nvim_lsp', priority = 900 },
+            { name = 'path', priority = 700 },
+            { name = 'buffer', priority = 600 },
+            { name = 'luasnip', priority = 500 },
+          },
+        }
+
+        cmp.setup.filetype('tex', {
+          sources = cmp.config.sources {
+            { name = 'vimtex', priority = 1000 },
+            { name = 'latex_symbols', priority = 900 },
+            { name = 'path', priority = 700 },
+            { name = 'buffer', priority = 600 },
+            { name = 'luasnip', priority = 500 },
+          },
+          mapping = cmp.mapping.preset.insert {
+            ['<CR>'] = function(fallback)
+              fallback() -- Enter 换行
+            end,
+            ['<Tab>'] = cmp.mapping(function(fallback)
+              if cmp.visible() then
+                cmp.confirm { select = true } -- TeX 下 Tab 也确认
+              elseif luasnip.expand_or_jumpable() then
+                luasnip.expand_or_jump()
+              else
+                fallback()
+              end
+            end, { 'i', 's' }),
+            ['<S-Tab>'] = cmp.mapping(function(fallback)
+              if cmp.visible() then
+                cmp.select_prev_item()
+              elseif luasnip.locally_jumpable(-1) then
+                luasnip.jump(-1)
+              else
+                fallback()
+              end
+            end, { 'i', 's' }),
+          },
+        })
+      end,
+    },
   },
   { -- You can easily change to a different colorscheme.
     -- Change the name of the colorscheme plugin below, and then
@@ -898,15 +1040,19 @@ require('lazy').setup({
     -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
     'folke/tokyonight.nvim',
     priority = 1000, -- Make sure to load this before all the other start plugins.
-    init = function()
-      -- Load the colorscheme here.
-      -- Like many other themes, this one has different styles, and you could load
-      -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-      vim.cmd.colorscheme 'tokyonight-night'
-
-      -- You can configure highlights by doing something like:
-      vim.cmd.hi 'Comment gui=none'
-    end,
+    opts = {
+      transparent = true,
+      styles = { sidebars = 'transparent', floats = 'transparent' },
+    },
+    -- init = function()
+    --   -- Load the colorscheme here.
+    --   -- Like many other themes, this one has different styles, and you could load
+    --   -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
+    --   vim.cmd.colorscheme 'tokyonight-night'
+    --
+    --   -- You can configure highlights by doing something like:
+    --   vim.cmd.hi 'Comment gui=none'
+    -- end,
   },
 
   -- Highlight todo, notes, etc in comments
@@ -933,20 +1079,20 @@ require('lazy').setup({
       -- Simple and easy statusline.
       --  You could remove this setup call if you don't like it,
       --  and try some other statusline plugin
-      local statusline = require 'mini.statusline'
-      -- set use_icons to true if you have a Nerd Font
-      statusline.setup { use_icons = vim.g.have_nerd_font }
-
-      -- You can configure sections in the statusline by overriding their
-      -- default behavior. For example, here we set the section for
-      -- cursor location to LINE:COLUMN
-      ---@diagnostic disable-next-line: duplicate-set-field
-      --statusline.section_location = function()
-      --  return '%2l:%-2v'
-      --end
-      statusline.section_location = function()
-        return string.format('%d/%d:%d/%d', vim.fn.line '.', vim.fn.line '$', vim.fn.col '.', vim.fn.col '$')
-      end
+      -- local statusline = require 'mini.statusline'
+      -- -- set use_icons to true if you have a Nerd Font
+      -- statusline.setup { use_icons = vim.g.have_nerd_font }
+      --
+      -- -- You can configure sections in the statusline by overriding their
+      -- -- default behavior. For example, here we set the section for
+      -- -- cursor location to LINE:COLUMN
+      -- ---@diagnostic disable-next-line: duplicate-set-field
+      -- --statusline.section_location = function()
+      -- --  return '%2l:%-2v'
+      -- --end
+      -- statusline.section_location = function()
+      --   return string.format('%d/%d:%d/%d', vim.fn.line '.', vim.fn.line '$', vim.fn.col '.', vim.fn.col '$')
+      -- end
 
       -- ... and there is more!
       --  Check out: https://github.com/echasnovski/mini.nvim
@@ -958,7 +1104,7 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'python' },
+      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'python', 'kdl' },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -992,7 +1138,7 @@ require('lazy').setup({
   -- require 'kickstart.plugins.indent_line',
   -- require 'kickstart.plugins.lint',
   -- require 'kickstart.plugins.autopairs',
-  -- require 'kickstart.plugins.neo-tree',
+  require 'kickstart.plugins.neo-tree',
   -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
@@ -1066,3 +1212,89 @@ else
     paste = { ['+'] = paste, ['*'] = paste },
   }
 end
+
+vim.o.termguicolors = true
+require('tokyonight').setup {
+  transparent = true,
+  styles = { sidebars = 'transparent', floats = 'transparent' },
+}
+require('catppuccin').setup {
+  flavour = 'frappe', -- latte, frappe, macchiato, mocha
+  background = { -- :h background
+    light = 'latte',
+    dark = 'mocha',
+  },
+  transparent_background = true, -- disables setting the background color.
+  float = {
+    transparent = true, -- enable transparent floating windows
+    solid = false, -- use solid styling for floating windows, see |winborder|
+  },
+  show_end_of_buffer = false, -- shows the '~' characters after the end of buffers
+  term_colors = false, -- sets terminal colors (e.g. `g:terminal_color_0`)
+  dim_inactive = {
+    enabled = false, -- dims the background color of inactive window
+    shade = 'dark',
+    percentage = 0.15, -- percentage of the shade to apply to the inactive window
+  },
+  no_italic = false, -- Force no italic
+  no_bold = false, -- Force no bold
+  no_underline = false, -- Force no underline
+  styles = { -- Handles the styles of general hi groups (see `:h highlight-args`):
+    comments = { 'italic' }, -- Change the style of comments
+    conditionals = { 'italic' },
+    loops = {},
+    functions = {},
+    keywords = {},
+    strings = {},
+    variables = {},
+    numbers = {},
+    booleans = {},
+    properties = {},
+    types = {},
+    operators = {},
+    -- miscs = {}, -- Uncomment to turn off hard-coded styles
+  },
+  lsp_styles = { -- Handles the style of specific lsp hl groups (see `:h lsp-highlight`).
+    virtual_text = {
+      errors = { 'italic' },
+      hints = { 'italic' },
+      warnings = { 'italic' },
+      information = { 'italic' },
+      ok = { 'italic' },
+    },
+    underlines = {
+      errors = { 'underline' },
+      hints = { 'underline' },
+      warnings = { 'underline' },
+      information = { 'underline' },
+      ok = { 'underline' },
+    },
+    inlay_hints = {
+      background = true,
+    },
+  },
+  color_overrides = {},
+  custom_highlights = {},
+  default_integrations = true,
+  auto_integrations = false,
+  integrations = {
+    cmp = true,
+    gitsigns = true,
+    nvimtree = true,
+    notify = false,
+    mini = {
+      enabled = true,
+      indentscope_color = '',
+    },
+    -- For more plugins integrations please scroll down (https://github.com/catppuccin/nvim#integrations)
+  },
+}
+
+require('gruvbox').setup { transparent_mode = true }
+
+require('onedark').setup { style = 'darker', transparent = true }
+vim.g.everforest_background = 'hard'
+vim.g.everforest_transparent_background = 1
+vim.cmd.colorscheme 'tokyonight-moon'
+vim.api.nvim_set_hl(0, 'WinSeparator', { fg = '#3b3f51' })
+vim.api.nvim_set_hl(0, 'CursorLineNr', { bold = true })
