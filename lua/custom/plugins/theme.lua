@@ -1,18 +1,13 @@
 return {
   {
     'folke/tokyonight.nvim',
-    priority = 1000,
-    lazy = false,
+    lazy = true,
     opts = {
       transparent = true,
       styles = { sidebars = 'transparent', floats = 'transparent' },
     },
     config = function(_, opts)
-      vim.o.termguicolors = true
       require('tokyonight').setup(opts)
-      vim.cmd.colorscheme 'tokyonight-moon'
-      vim.api.nvim_set_hl(0, 'WinSeparator', { fg = '#3b3f51' })
-      vim.api.nvim_set_hl(0, 'CursorLineNr', { bold = true })
     end,
   },
   {
@@ -87,4 +82,3 @@ return {
     end,
   },
 }
-
