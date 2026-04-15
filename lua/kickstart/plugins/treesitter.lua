@@ -1,7 +1,6 @@
 return {
   'nvim-treesitter/nvim-treesitter',
   build = ':TSUpdate',
-  main = 'nvim-treesitter.configs',
   dependencies = {
     { 'nvim-treesitter/nvim-treesitter-context', opts = { mode = 'cursor', separator = '─' } },
   },
@@ -28,5 +27,8 @@ return {
     },
     indent = { enable = false },
   },
+  config = function(_, opts)
+    require('nvim-treesitter.configs').setup(opts)
+    require('config.treesitter_compat').apply()
+  end,
 }
-

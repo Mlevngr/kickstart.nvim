@@ -30,3 +30,12 @@ vim.filetype.add {
   },
 }
 
+-- Fallback filetype detection for KDL (helps if builtin detection misses)
+vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
+  pattern = { '*.kdl', '*.KDL' },
+  callback = function()
+    if vim.bo.filetype ~= 'kdl' then
+      vim.bo.filetype = 'kdl'
+    end
+  end,
+})
